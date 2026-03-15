@@ -24,13 +24,13 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 # Берем токен из переменных окружения (безопасно)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-EMERGENCY_PHONE = "+77001234567" 
+EMERGENCY_PHONE = "+77771838479" 
 
 SPECIALISTS = {
-    'suggestion': 495342466,   
-    'help': 987654321,          
-    'anonymous': 111222333,    
-    'psychologist': 444555666, 
+    'suggestion': 5264345588,   
+    'help': 5264345588,          
+    'anonymous': 5264345588,    
+    'psychologist': 5264345588, 
     'emergency': 777888999     
 }
 
