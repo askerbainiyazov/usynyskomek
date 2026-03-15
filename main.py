@@ -30,7 +30,7 @@ SPECIALISTS = {
     'suggestion': 5264345588,   
     'help': 5264345588,          
     'anonymous': 5264345588,    
-    'psychologist': 5264345588, 
+    'psychologist': 775448372, 
     'emergency': 777888999     
 }
 
