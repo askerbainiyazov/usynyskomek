@@ -1,28 +1,30 @@
 import logging
+import datetime
 import os
 from threading import Thread
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
-# --- ВЕБ-СЕРВЕР ДЛЯ ПОДДЕРЖКИ ЖИЗНИ ---
-server = Flask('')
+# --- МИНИ-СЕРВЕР ДЛЯ ПОДДЕРЖКИ РАБОТЫ ---
+keep_alive_app = Flask('')
 
-@server.route('/')
+@keep_alive_app.route('/')
 def home():
-    return "I'm alive!"
+    return "Бот запущен и работает!"
 
 def run():
-    server.run(host='0.0.0.0', port=8080)
+    keep_alive_app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
     t = Thread(target=run)
+    t.daemon = True
     t.start()
-# --------------------------------------
+# ---------------------------------------
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Берем токен из переменных окружения (безопасно)
+# Токен берем из настроек сервера (Environment Variables)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 EMERGENCY_PHONE = "+77771838479" 
 
@@ -41,15 +43,13 @@ MESSAGES = {
         'welcome': "Сәлем! 👋\nБұл бот арқылы ұсыныс жіберуге немесе көмек сұрауға болады.\nТаңдаңыз:",
         'btn_suggest': "📌 Ұсыныс", 'btn_help': "🤝 Көмек", 'btn_anon': "🕵️‍♂️ Анонимді", 
         'btn_psych': "🧠 Психолог", 'btn_emerg': "🚨 Жылдам көмек",
-        'ask_name': "Атыңыз:", 'ask_class': "Сынып:", 'ask_msg': "Мәтін:", 'success': "✅ Жіберілді!",
-        'emerg_text': "🚨 *Шұғыл байланыс:*\n\nҚоңырау шалу үшін нөмірді басыңыз:\n"
+        'ask_name': "Атыңыз:", 'ask_class': "Сынып:", 'ask_msg': "Мәтініңізді жазыңыз:", 'success': "✅ Жіберілді!"
     },
     'ru': {
         'welcome': "Привет! 👋\nЭтот бот поможет отправить предложение или попросить о помощи.\nВыберите:",
         'btn_suggest': "📌 Предложение", 'btn_help': "🤝 Помощь", 'btn_anon': "🕵️‍♂️ Анонимно", 
         'btn_psych': "🧠 Психолог", 'btn_emerg': "🚨 Срочная помощь",
-        'ask_name': "Ваше имя:", 'ask_class': "Класс:", 'ask_msg': "Текст:", 'success': "✅ Отправлено!",
-        'emerg_text': "🚨 *Экстренная связь:*\n\nНажмите на номер, чтобы позвонить:\n"
+        'ask_name': "Ваше имя:", 'ask_class': "Класс:", 'ask_msg': "Напишите ваше сообщение:", 'success': "✅ Отправлено!"
     }
 }
 
@@ -79,8 +79,11 @@ async def handle_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get('lang', 'ru')
     context.user_data['type'] = query.data
     if query.data == 'emergency':
-        await query.message.reply_text(f"{MESSAGES[lang]['emerg_text']} {EMERGENCY_PHONE}", parse_mode='Markdown')
+        await query.message.reply_text(f"🚨 {EMERGENCY_PHONE}")
         return ConversationHandler.END
+    if query.data == 'anonymous':
+        await query.message.reply_text(MESSAGES[lang]['ask_msg'])
+        return ASK_MESSAGE
     await query.message.reply_text(MESSAGES[lang]['ask_name'])
     return ASK_NAME
 
@@ -100,21 +103,37 @@ async def send_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get('lang', 'ru')
     u = context.user_data
     target_id = SPECIALISTS.get(u.get('type'))
-    user_link = f"tg://user?id={update.effective_user.id}"
-    report = (f"📩 *ОБРАЩЕНИЕ: {u.get('type').upper()}*\n"
-              f"👤 *Имя:* {u.get('name')}\n"
-              f"🏫 *Класс:* {u.get('class')}\n"
-              f"📝 *Текст:* {update.message.text}\n"
-              f"🔗 [Профиль отправителя]({user_link})")
+    now = datetime.datetime.now()
+    dt_string = now.strftime("%d.%m.%Y | %H:%M")
+    name = u.get('name', 'Анонимно / Анонимді')
+    u_class = u.get('class', 'Не указан / Көрсетілмеген')
+
+    report = (
+        f"📩 <b>ОБРАЩЕНИЕ / ӨТІНІШ: {u.get('type').upper()}</b>\n"
+        f"📅 <b>Уақыты / Время:</b> {dt_string}\n"
+        f"────────────────────\n"
+        f"👤 <b>Имя / Аты:</b> {name}\n"
+        f"🏫 <b>Класс / Сынып:</b> {u_class}\n"
+        f"📝 <b>Текст / Мәтін:</b> {update.message.text}\n"
+        f"────────────────────\n"
+        f"👇 <b>Чтобы ответить, нажмите на имя автора сообщения ниже:</b>"
+    )
+    
     try:
-        await context.bot.send_message(chat_id=target_id, text=report, parse_mode='Markdown')
+        await context.bot.send_message(chat_id=target_id, text=report, parse_mode='HTML')
+        await context.bot.forward_message(
+            chat_id=target_id,
+            from_chat_id=update.effective_chat.id,
+            message_id=update.message.message_id
+        )
         await update.message.reply_text(MESSAGES[lang]['success'])
-    except:
-        await update.message.reply_text("Ошибка: Специалист не в сети.")
+    except Exception as e:
+        logging.error(f"Ошибка: {e}")
+        await update.message.reply_text("Ошибка отправки / Жіберу қатесі")
     return ConversationHandler.END
 
 if __name__ == '__main__':
-    keep_alive() # Запускаем веб-сервер
+    keep_alive() # Запуск мини-сервера
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -127,5 +146,4 @@ if __name__ == '__main__':
         },
         fallbacks=[CommandHandler('start', start)]
     ))
-    print("Бот запущен!")
     app.run_polling()
