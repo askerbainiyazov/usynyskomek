@@ -1,6 +1,7 @@
 import logging
 import datetime
 import os
+from datetime import timezone, timedelta
 from threading import Thread
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -119,7 +120,8 @@ async def send_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action_type = u.get('type')
     
     # Получаем текущее время
-    now = datetime.datetime.now()
+   tz_kz = timezone(timedelta(hours=5))
+    now = datetime.datetime.now(tz_kz)
     dt_string = now.strftime("%d.%m.%Y | %H:%M")
 
     # Формируем отчет в зависимости от типа (Анонимно или Обычный)
