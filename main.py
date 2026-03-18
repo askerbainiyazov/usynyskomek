@@ -44,12 +44,14 @@ MESSAGES = {
         'btn_suggest': "📌 Ұсыныс", 'btn_help': "🤝 Көмек", 'btn_anon': "🕵️‍♂️ Анонимді", 
         'btn_psych': "🧠 Психолог", 'btn_emerg': "🚨 Жылдам көмек",
         'ask_name': "Атыңыз:", 'ask_class': "Сынып:", 'ask_msg': "Мәтініңізді жазыңыз:", 'success': "✅ Жіберілді!"
+        'emerg_text': "🚨 <b>Шұғыл байланыс / Экстренная связь:</b>\n\nҚоңырау шалу үшін нөмірді басыңыз!\nНажмите на номер, чтобы позвонить:\n"
     },
     'ru': {
         'welcome': "Привет! 👋\nЭтот бот поможет отправить предложение или попросить о помощи.\nВыберите:",
         'btn_suggest': "📌 Предложение", 'btn_help': "🤝 Помощь", 'btn_anon': "🕵️‍♂️ Анонимно", 
         'btn_psych': "🧠 Психолог", 'btn_emerg': "🚨 Срочная помощь",
         'ask_name': "Ваше имя:", 'ask_class': "Класс:", 'ask_msg': "Напишите ваше сообщение:", 'success': "✅ Отправлено!"
+        'emerg_text': "🚨 <b>Шұғыл байланыс / Экстренная связь:</b>\n\nҚоңырау шалу үшін нөмірді басыңыз!\nНажмите на номер, чтобы позвонить:\n"
     }
 }
 
@@ -79,7 +81,11 @@ async def handle_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get('lang', 'ru')
     context.user_data['type'] = query.data
     if query.data == 'emergency':
-        await query.message.reply_text(f"🚨 {EMERGENCY_PHONE}")
+        # Двуязычное сообщение со звонком
+        await query.message.reply_text(
+            f"{MESSAGES[lang]['emerg_text']} {EMERGENCY_PHONE}", 
+            parse_mode='HTML'
+        )
         return ConversationHandler.END
     if query.data == 'anonymous':
         await query.message.reply_text(MESSAGES[lang]['ask_msg'])
