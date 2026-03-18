@@ -119,8 +119,8 @@ async def send_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_id = SPECIALISTS.get(u.get('type'))
     action_type = u.get('type')
     
-    # Получаем текущее время
-   tz_kz = timezone(timedelta(hours=5))
+    # Настройка времени Казахстана (UTC+5)
+    tz_kz = timezone(timedelta(hours=5))
     now = datetime.datetime.now(tz_kz)
     dt_string = now.strftime("%d.%m.%Y | %H:%M")
 
