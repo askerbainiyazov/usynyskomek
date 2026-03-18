@@ -30,9 +30,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 EMERGENCY_PHONE = "+77771838479" 
 
 SPECIALISTS = {
-    'suggestion': 495342466,   
+    'suggestion': 5264345588,   
     'help': 5264345588,          
-    'anonymous': 495342466,    
+    'anonymous': 5264345588,    
     'psychologist': 775448372, 
     'emergency': 777888999     
 }
