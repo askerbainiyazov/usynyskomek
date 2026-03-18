@@ -29,9 +29,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 EMERGENCY_PHONE = "+77771838479" 
 
 SPECIALISTS = {
-    'suggestion': 5264345588,   
+    'suggestion': 495342466,   
     'help': 5264345588,          
-    'anonymous': 5264345588,    
+    'anonymous': 495342466,    
     'psychologist': 775448372, 
     'emergency': 777888999     
 }
@@ -40,23 +40,26 @@ SELECT_LANG, SELECT_ACTION, ASK_NAME, ASK_CLASS, ASK_MESSAGE = range(5)
 
 MESSAGES = {
     'kz': {
-        'welcome': "Сәлем! 👋\nБұл бот арқылы ұсыныс жіберуге немесе көмек сұрауға болады.\nТаңдаңыз:",
+        'welcome': "Сәлем! 👋\nБұл бот арқылы сіз:\n🔹 Мектепке ұсыныс жібере аласыз\n🔹 Қиын жағдайда көмек сұрай аласыз\n\nТөмендегі батырмалардың бірін таңдаңыз:",
         'btn_suggest': "📌 Ұсыныс", 'btn_help': "🤝 Көмек", 'btn_anon': "🕵️‍♂️ Анонимді", 
         'btn_psych': "🧠 Психолог", 'btn_emerg': "🚨 Жылдам көмек",
-        'ask_name': "Атыңыз:", 'ask_class': "Сынып:", 'ask_msg': "Мәтініңізді жазыңыз:", 'success': "✅ Жіберілді!"
+        'ask_name': "Атыңызды жазыңыз:", 'ask_class': "Сынып:", 'ask_msg': "Хабарламаңызды жазыңыз:", 'success': "✅ Жіберілді!",
         'emerg_text': "🚨 <b>Шұғыл байланыс / Экстренная связь:</b>\n\nҚоңырау шалу үшін нөмірді басыңыз!\nНажмите на номер, чтобы позвонить:\n"
     },
     'ru': {
-        'welcome': "Привет! 👋\nЭтот бот поможет отправить предложение или попросить о помощи.\nВыберите:",
+        'welcome': "Привет! 👋\nЧерез этот бот вы можете:\n🔹 Отправить предложение школе\n🔹 Попросить о помощи в трудной ситуации\n\nВыберите одну из кнопок ниже:",
         'btn_suggest': "📌 Предложение", 'btn_help': "🤝 Помощь", 'btn_anon': "🕵️‍♂️ Анонимно", 
         'btn_psych': "🧠 Психолог", 'btn_emerg': "🚨 Срочная помощь",
-        'ask_name': "Ваше имя:", 'ask_class': "Класс:", 'ask_msg': "Напишите ваше сообщение:", 'success': "✅ Отправлено!"
+        'ask_name': "Напишите ваше имя:", 'ask_class': "Класс:", 'ask_msg': "Напишите ваше сообщение:", 'success': "✅ Отправлено!",
         'emerg_text': "🚨 <b>Шұғыл байланыс / Экстренная связь:</b>\n\nҚоңырау шалу үшін нөмірді басыңыз!\nНажмите на номер, чтобы позвонить:\n"
     }
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton("🇰🇿 Қазақша", callback_data='lang_kz'), InlineKeyboardButton("🇷🇺 Русский", callback_data='lang_ru')]]
+    keyboard = [
+        [InlineKeyboardButton("Қазақша 🇰🇿", callback_data='lang_kz')],
+        [InlineKeyboardButton("Русский 🇷🇺", callback_data='lang_ru')]
+    ]
     await update.message.reply_text("Тілді таңдаңыз / Выберите язык:", reply_markup=InlineKeyboardMarkup(keyboard))
     return SELECT_LANG
 
@@ -65,6 +68,7 @@ async def set_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     lang = 'kz' if query.data == 'lang_kz' else 'ru'
     context.user_data['lang'] = lang
+    
     keyboard = [
         [InlineKeyboardButton(MESSAGES[lang]['btn_suggest'], callback_data='suggestion')],
         [InlineKeyboardButton(MESSAGES[lang]['btn_help'], callback_data='help')],
@@ -80,6 +84,7 @@ async def handle_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     lang = context.user_data.get('lang', 'ru')
     context.user_data['type'] = query.data
+
     if query.data == 'emergency':
         # Двуязычное сообщение со звонком
         await query.message.reply_text(
@@ -87,9 +92,11 @@ async def handle_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='HTML'
         )
         return ConversationHandler.END
+    
     if query.data == 'anonymous':
         await query.message.reply_text(MESSAGES[lang]['ask_msg'])
         return ASK_MESSAGE
+
     await query.message.reply_text(MESSAGES[lang]['ask_name'])
     return ASK_NAME
 
@@ -109,24 +116,43 @@ async def send_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get('lang', 'ru')
     u = context.user_data
     target_id = SPECIALISTS.get(u.get('type'))
+    action_type = u.get('type')
+    
+    # Получаем текущее время
     now = datetime.datetime.now()
     dt_string = now.strftime("%d.%m.%Y | %H:%M")
-    name = u.get('name', 'Анонимно / Анонимді')
-    u_class = u.get('class', 'Не указан / Көрсетілмеген')
 
-    report = (
-        f"📩 <b>ОБРАЩЕНИЕ / ӨТІНІШ: {u.get('type').upper()}</b>\n"
-        f"📅 <b>Уақыты / Время:</b> {dt_string}\n"
-        f"────────────────────\n"
-        f"👤 <b>Имя / Аты:</b> {name}\n"
-        f"🏫 <b>Класс / Сынып:</b> {u_class}\n"
-        f"📝 <b>Текст / Мәтін:</b> {update.message.text}\n"
-        f"────────────────────\n"
-        f"👇 <b>Чтобы ответить, нажмите на имя автора сообщения ниже:</b>"
-    )
+    # Формируем отчет в зависимости от типа (Анонимно или Обычный)
+    if action_type == 'anonymous':
+        report = (
+            f"📩 <b>ӨТІНІШ / ОБРАЩЕНИЕ: АНОНИМНО 🕵️‍♂️</b>\n"
+            f"📅 <b>Уақыты / Время:</b> {dt_string}\n"
+            f"────────────────────\n"
+            f"📝 <b>Текст / Мәтін:</b> {update.message.text}\n"
+            f"────────────────────\n"
+            f"👇 <b>Жауап беру үшін төмендегі хабарламаның авторын басыңыз:</b>\n"
+            f"👇 <b>Чтобы ответить, нажмите на имя автора сообщения ниже:</b>"
+        )
+    else:
+        name = u.get('name', '---')
+        u_class = u.get('class', '---')
+        report = (
+            f"📩 <b>ӨТІНІШ / ОБРАЩЕНИЕ: {action_type.upper()}</b>\n"
+            f"📅 <b>Уақыты / Время:</b> {dt_string}\n"
+            f"────────────────────\n"
+            f"👤 <b>Имя / Аты:</b> {name}\n"
+            f"🏫 <b>Класс / Сынып:</b> {u_class}\n"
+            f"📝 <b>Текст / Мәтін:</b> {update.message.text}\n"
+            f"────────────────────\n"
+            f"👇 <b>Жауап беру үшін төмендегі хабарламаның авторын басыңыз:</b>\n"
+            f"👇 <b>Чтобы ответить, нажмите на имя автора сообщения ниже:</b>"
+        )
     
     try:
+        # Отправляем текстовый отчет
         await context.bot.send_message(chat_id=target_id, text=report, parse_mode='HTML')
+        
+        # Пересылаем сообщение для связи
         await context.bot.forward_message(
             chat_id=target_id,
             from_chat_id=update.effective_chat.id,
@@ -134,14 +160,14 @@ async def send_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await update.message.reply_text(MESSAGES[lang]['success'])
     except Exception as e:
-        logging.error(f"Ошибка: {e}")
+        logging.error(f"Ошибка отправки: {e}")
         await update.message.reply_text("Ошибка отправки / Жіберу қатесі")
+    
     return ConversationHandler.END
 
 if __name__ == '__main__':
-    keep_alive() # Запуск мини-сервера
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(ConversationHandler(
+    conv = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
             SELECT_LANG: [CallbackQueryHandler(set_lang)],
@@ -151,5 +177,7 @@ if __name__ == '__main__':
             ASK_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_final)],
         },
         fallbacks=[CommandHandler('start', start)]
-    ))
+    )
+    app.add_handler(conv)
+    print("Бот запущен!")
     app.run_polling()
