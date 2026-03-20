@@ -7,7 +7,7 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
-# --- МИНИ-СЕРВЕР ДЛЯ ПОДДЕРЖКИ РАБОТЫ ---
+# --- МИНИ-СЕРВЕР ДЛЯ ПОДДЕРЖКИ РАБОТЫ (ЧТОБЫ НЕ БЫЛО TIMED OUT) ---
 keep_alive_app = Flask('')
 
 @keep_alive_app.route('/')
@@ -15,17 +15,18 @@ def home():
     return "Бот запущен и работает!"
 
 def run():
-    keep_alive_app.run(host='0.0.0.0', port=8080)
+    # Render передает порт в переменную окружения PORT, по умолчанию 8080
+    port = int(os.environ.get('PORT', 8080))
+    keep_alive_app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
     t.daemon = True
     t.start()
-# ---------------------------------------
+# ------------------------------------------------------------------
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Токен берем из настроек сервера (Environment Variables)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 EMERGENCY_PHONE = "+77771838479" 
 
@@ -57,10 +58,7 @@ MESSAGES = {
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("Қазақша 🇰🇿", callback_data='lang_kz')],
-        [InlineKeyboardButton("Русский 🇷🇺", callback_data='lang_ru')]
-    ]
+    keyboard = [[InlineKeyboardButton("Қазақша 🇰🇿", callback_data='lang_kz')], [InlineKeyboardButton("Русский 🇷🇺", callback_data='lang_ru')]]
     await update.message.reply_text("Тілді таңдаңыз / Выберите язык:", reply_markup=InlineKeyboardMarkup(keyboard))
     return SELECT_LANG
 
@@ -69,14 +67,11 @@ async def set_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     lang = 'kz' if query.data == 'lang_kz' else 'ru'
     context.user_data['lang'] = lang
-    
-    keyboard = [
-        [InlineKeyboardButton(MESSAGES[lang]['btn_suggest'], callback_data='suggestion')],
-        [InlineKeyboardButton(MESSAGES[lang]['btn_help'], callback_data='help')],
-        [InlineKeyboardButton(MESSAGES[lang]['btn_anon'], callback_data='anonymous')],
-        [InlineKeyboardButton(MESSAGES[lang]['btn_psych'], callback_data='psychologist')],
-        [InlineKeyboardButton(MESSAGES[lang]['btn_emerg'], callback_data='emergency')]
-    ]
+    keyboard = [[InlineKeyboardButton(MESSAGES[lang]['btn_suggest'], callback_data='suggestion')],
+                [InlineKeyboardButton(MESSAGES[lang]['btn_help'], callback_data='help')],
+                [InlineKeyboardButton(MESSAGES[lang]['btn_anon'], callback_data='anonymous')],
+                [InlineKeyboardButton(MESSAGES[lang]['btn_psych'], callback_data='psychologist')],
+                [InlineKeyboardButton(MESSAGES[lang]['btn_emerg'], callback_data='emergency')]]
     await query.message.edit_text(MESSAGES[lang]['welcome'], reply_markup=InlineKeyboardMarkup(keyboard))
     return SELECT_ACTION
 
@@ -85,19 +80,12 @@ async def handle_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     lang = context.user_data.get('lang', 'ru')
     context.user_data['type'] = query.data
-
     if query.data == 'emergency':
-        # Двуязычное сообщение со звонком
-        await query.message.reply_text(
-            f"{MESSAGES[lang]['emerg_text']} {EMERGENCY_PHONE}", 
-            parse_mode='HTML'
-        )
+        await query.message.reply_text(f"{MESSAGES[lang]['emerg_text']} {EMERGENCY_PHONE}", parse_mode='HTML')
         return ConversationHandler.END
-    
     if query.data == 'anonymous':
         await query.message.reply_text(MESSAGES[lang]['ask_msg'])
         return ASK_MESSAGE
-
     await query.message.reply_text(MESSAGES[lang]['ask_name'])
     return ASK_NAME
 
@@ -119,55 +107,33 @@ async def send_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_id = SPECIALISTS.get(u.get('type'))
     action_type = u.get('type')
     
-    # Настройка времени Казахстана (UTC+5)
-    # tz_kz = timezone(timedelta(hours=5))
-    now = datetime.datetime.now()
-    dt_string = now.strftime("%d.%m.%Y | %H:%M")
+    # Время Казахстана (UTC+5)
+    tz_kz = timezone(timedelta(hours=5))
+    dt_string = datetime.datetime.now(tz_kz).strftime("%d.%m.%Y | %H:%M")
 
-    # Формируем отчет в зависимости от типа (Анонимно или Обычный)
-    if action_type == 'anonymous':
-        report = (
-            f"📩 <b>ӨТІНІШ / ОБРАЩЕНИЕ: АНОНИМНО 🕵️‍♂️</b>\n"
-            f"📅 <b>Уақыты / Время:</b> {dt_string}\n"
-            f"────────────────────\n"
-            f"📝 <b>Текст / Мәтін:</b> {update.message.text}\n"
-            f"────────────────────\n"
-            f"👇 <b>Жауап беру үшін төмендегі хабарламаның авторын басыңыз:</b>\n"
-            f"👇 <b>Чтобы ответить, нажмите на имя автора сообщения ниже:</b>"
-        )
-    else:
-        name = u.get('name', '---')
-        u_class = u.get('class', '---')
-        report = (
-            f"📩 <b>ӨТІНІШ / ОБРАЩЕНИЕ: {action_type.upper()}</b>\n"
-            f"📅 <b>Уақыты / Время:</b> {dt_string}\n"
-            f"────────────────────\n"
-            f"👤 <b>Имя / Аты:</b> {name}\n"
-            f"🏫 <b>Класс / Сынып:</b> {u_class}\n"
-            f"📝 <b>Текст / Мәтін:</b> {update.message.text}\n"
-            f"────────────────────\n"
-            f"👇 <b>Жауап беру үшін төмендегі хабарламаның авторын басыңыз:</b>\n"
-            f"👇 <b>Чтобы ответить, нажмите на имя автора сообщения ниже:</b>"
-        )
+    name = u.get('name', 'Анонимно / Анонимді')
+    u_class = u.get('class', '---')
+
+    report = (f"📩 <b>ӨТІНІШ / ОБРАЩЕНИЕ: {action_type.upper()}</b>\n"
+              f"📅 <b>Уақыты / Время:</b> {dt_string}\n"
+              f"────────────────────\n"
+              f"👤 <b>Имя / Аты:</b> {name}\n"
+              f"🏫 <b>Класс / Сынып:</b> {u_class}\n"
+              f"📝 <b>Текст / Мәтін:</b> {update.message.text}\n"
+              f"────────────────────\n"
+              f"👇 <b>Чтобы ответить, нажмите на имя автора сообщения ниже:</b>")
     
     try:
-        # Отправляем текстовый отчет
         await context.bot.send_message(chat_id=target_id, text=report, parse_mode='HTML')
-        
-        # Пересылаем сообщение для связи
-        await context.bot.forward_message(
-            chat_id=target_id,
-            from_chat_id=update.effective_chat.id,
-            message_id=update.message.message_id
-        )
+        await context.bot.forward_message(chat_id=target_id, from_chat_id=update.effective_chat.id, message_id=update.message.message_id)
         await update.message.reply_text(MESSAGES[lang]['success'])
     except Exception as e:
-        logging.error(f"Ошибка отправки: {e}")
+        logging.error(f"Ошибка: {e}")
         await update.message.reply_text("Ошибка отправки / Жіберу қатесі")
-    
     return ConversationHandler.END
 
 if __name__ == '__main__':
+    keep_alive()  # <--- ВОТ ЭТА СТРОКА ИСПРАВЛЯЕТ TIMED OUT
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     conv = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -181,5 +147,4 @@ if __name__ == '__main__':
         fallbacks=[CommandHandler('start', start)]
     )
     app.add_handler(conv)
-    print("Бот запущен!")
     app.run_polling()
