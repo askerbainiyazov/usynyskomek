@@ -32,8 +32,8 @@ EMERGENCY_PHONE = "+77771838479"
 SPECIALISTS = {
     'suggestion': 5264345588,   
     'help': 5264345588,          
-    'anonymous': 5264345588,    
-    'psychologist': 775448372, 
+    'anonymous': 1086304129,    
+    'psychologist': 1198800670, 
     'emergency': 777888999     
 }
 
@@ -120,8 +120,8 @@ async def send_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action_type = u.get('type')
     
     # Настройка времени Казахстана (UTC+5)
-    tz_kz = timezone(timedelta(hours=5))
-    now = datetime.datetime.now(tz_kz)
+    # tz_kz = timezone(timedelta(hours=5))
+    now = datetime.datetime.now()
     dt_string = now.strftime("%d.%m.%Y | %H:%M")
 
     # Формируем отчет в зависимости от типа (Анонимно или Обычный)
